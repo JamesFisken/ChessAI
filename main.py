@@ -1,5 +1,4 @@
 import numpy
-
 import numpy as np
 coords = {
     'a': 0,
@@ -80,7 +79,6 @@ class Board:
 
             return legal_moves
 
-
         if (piece.pieceType).lower() == "b":
             directions = [[1, 1], [-1, -1], [-1, 1], [1, -1]]  # list of cardinal directions
             legal_moves = self.check_directions(directions, piece, 100)
@@ -97,7 +95,30 @@ class Board:
                           [-1, 0]]  # list of cardinal directions
             legal_moves = self.check_directions(directions, piece, 2)
             return legal_moves
-        return legal_moves
+
+        if (piece.pieceType).lower() == "p":
+            if piece.pieceType.isupper():  # very hardcoded but i don't see much of another way
+                if self.get_piece((piece.posx, piece.posy - 1)) == '-':   # move forward 1
+                    legal_moves.append([piece.posx, piece.posy - 1])
+                    if piece.posy == 6 and self.get_piece((piece.posx, piece.posy - 2)) == '-':  # double move
+                        legal_moves.append([piece.posx, piece.posy - 2])
+                if self.get_piece((piece.posx + 1, piece.posy - 1)).islower():  # capture sideways
+                    legal_moves.append([piece.posx + 1, piece.posy - 1])
+                if self.get_piece((piece.posx - 1, piece.posy - 1)).islower():  # capture sideways
+                    legal_moves.append([piece.posx - 1, piece.posy - 1])
+
+            if piece.pieceType.islower():
+                if self.get_piece((piece.posx, piece.posy + 1)) == '-':
+                    legal_moves.append([piece.posx, piece.posy + 1])
+                    if piece.posy == 1 and self.get_piece((piece.posx, piece.posy + 2)) == '-':
+                        legal_moves.append([piece.posx, piece.posy + 2])
+                if self.get_piece((piece.posx + 1, piece.posy + 1)).islower():
+                    legal_moves.append([piece.posx + 1, piece.posy + 1])
+                if self.get_piece((piece.posx - 1, piece.posy + 1)).islower():
+                    legal_moves.append([piece.posx - 1, piece.posy + 1])
+            for move in legal_moves:
+                self.add_piece(move, "X")
+            return legal_moves
 
 
 
@@ -108,9 +129,9 @@ class Board:
             return False
 
         legal_moves = self.get_pieces_legal_move(sq1)
-        print(sq2.position, legal_moves)
+        print(legal_moves)
 
-        if list(sq2.position) in legal_moves or sq1.pieceType.lower() == "p":
+        if list(sq2.position) in legal_moves:
             return True
         else:
             return False
@@ -180,8 +201,8 @@ class Board:
 
 
 b1 = Board(8, 8, [Square("-", (x, y)) for x in range(8) for y in range(8)], 'b')
-b1.FENimport('8/8/8/8/4N3/k7/8/K7 w')
+b1.FENimport('r1bqkb1r/ppppp1pp/8/8/4pn2/4P3/PPPP1PPP/RNBQKBNR w')
 
-b1.move_piece('e4', 'g6')
+b1.move_piece('e3', 'f4')
 
 b1.display()
