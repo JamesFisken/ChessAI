@@ -43,48 +43,77 @@ class Board:
 
         self.Eval = None
         self.turn = turn
+    def check_directions(self, directions, piece, distance):
+        legal_moves = []
+        for dir in directions:
+            Stopped = False
+            counter = 1
+            while not Stopped:
+                lookerX = piece.posx + dir[0] * counter
+                lookerY = piece.posy + dir[1] * counter
+
+                if lookerX <= 7 and lookerY <= 7 and lookerX >= 0 and lookerY >= 0 and counter < distance:
+                    if self.gameState[lookerX][lookerY].pieceType != "-":
+                        if (self.gameState[lookerX][lookerY].pieceType).isupper() == (
+                        piece.pieceType).isupper():  # blocked by own pieces
+                            Stopped = True
+                        elif (self.gameState[lookerX][lookerY].pieceType).isupper() == (
+                        piece.pieceType).isupper():  # capture
+                            Stopped = True
+                            legal_moves.append([lookerX, lookerY])
+                    else:
+                        legal_moves.append([lookerX, lookerY])
+                    counter += 1
+                else:
+                    Stopped = True
+        return legal_moves
     def get_pieces_legal_move(self, piece):
         legal_moves = []
         if (piece.pieceType).lower() == "r":
-            directions = [[1, 0], [-1, 0], [0, 1], [0, -1]]  #list of cardinal directions
-            for dir in directions:
-                Stopped = False
-                counter = 1
-                while not Stopped:
-                    lookerX = piece.posx+dir[0]*counter
-                    lookerY = piece.posy+dir[1]*counter
+            directions = [[0, 1], [0, -1], [1, 0], [-1, 0]]  #list of cardinal directions
+            legal_moves = self.check_directions(directions, piece, 100)
+            return legal_moves
 
-                    if lookerX < 7 and lookerY < 7 and lookerX > 0 and lookerY > 0:
-                        print(lookerX, lookerY)
-                        if self.gameState[lookerX][lookerY].pieceType != "-":
-
-                            if (self.gameState[lookerX][lookerY].pieceType).isupper() == (piece.pieceType).isupper(): #blocked by own pieces
-                                Stopped = True
-                            elif (self.gameState[lookerX][lookerY].pieceType).isupper() == (piece.pieceType).isupper(): #capture
-                                Stopped = True
-                                legal_moves.append([lookerX, lookerY])
-                        else:
-                            legal_moves.append([lookerX, lookerY])
-                        counter += 1
-                    else:
-                        Stopped = True
-
-        print(legal_moves)
         if (piece.pieceType).lower() == "n":
-            print("a knight was moved")
+            directions = [[1, 2], [2, 1], [-1, -2], [-2, -1], [-1, 2], [-2, 1], [1, -2], [2, -1]]  # list of cardinal directions
+            legal_moves = self.check_directions(directions, piece, 2)
+
+            return legal_moves
+
+
         if (piece.pieceType).lower() == "b":
-            print("a bishop was moved")
+            directions = [[1, 1], [-1, -1], [-1, 1], [1, -1]]  # list of cardinal directions
+            legal_moves = self.check_directions(directions, piece, 100)
+            return legal_moves
+
+
         if (piece.pieceType).lower() == "q":
-            print("a queen was moved")
+            directions = [[1, 1], [-1, -1], [-1, 1], [1, -1], [0, 1], [0, -1], [1, 0], [-1, 0]]  # list of cardinal directions
+            legal_moves = self.check_directions(directions, piece, 100)
+            return legal_moves
+
         if (piece.pieceType).lower() == "k":
-            print("a king was moved")
-        return True
+            directions = [[1, 1], [-1, -1], [-1, 1], [1, -1], [0, 1], [0, -1], [1, 0],
+                          [-1, 0]]  # list of cardinal directions
+            legal_moves = self.check_directions(directions, piece, 2)
+            return legal_moves
+        return legal_moves
+
 
 
     def check_legality(self, sq1, sq2):
+        if (sq1.pieceType).islower() and self.turn == "w":
+            return False
+        if (sq1.pieceType).isupper() and self.turn == "b":
+            return False
+
         legal_moves = self.get_pieces_legal_move(sq1)
-        #if sq2.position in legal_moves:
-        return True
+        print(sq2.position, legal_moves)
+
+        if list(sq2.position) in legal_moves or sq1.pieceType.lower() == "p":
+            return True
+        else:
+            return False
     def in_check(self):
         #use the gamestate to determine if a king is in check
         return True
@@ -97,9 +126,16 @@ class Board:
         p2_sq = self.gameState[int(p2[0])][int(p2[1])] #square object at p2
 
         if self.check_legality(p1_sq, p2_sq):
-
             p2_sq.pieceType = p1_sq.pieceType  # changes one squares piece to another
             p1_sq.pieceType = "-"  # makes the original square that the piece was on empty
+
+
+            if self.turn == "w":
+                self.turn = "b"
+            elif self.turn == "b":
+                self.turn = "w"
+        else:
+            print("move is illegal")
 
 
     def get_piece(self, position):
@@ -111,7 +147,6 @@ class Board:
 
     def FENimport(self, FEN):
         #rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w
-
         column = 0
         row = 0
         parody = False
@@ -138,13 +173,15 @@ class Board:
             for sq in row:
                 pieceboard.append(str(sq.pieceType))
         pieceboard = np.array(pieceboard)
-        pieceboard = pieceboard.reshape((8,8))
+        pieceboard = pieceboard.reshape((8, 8))
 
         print(np.swapaxes(pieceboard, 0, 1))  # swaps axis for easy visualization
         #print('   a   b   c   d   e   f   g   h')
 
 
 b1 = Board(8, 8, [Square("-", (x, y)) for x in range(8) for y in range(8)], 'b')
-b1.FENimport('8/2k5/8/8/4R3/8/1K6/8 w')
-b1.move_piece('e4', 'e8')
+b1.FENimport('8/8/8/8/4N3/k7/8/K7 w')
+
+b1.move_piece('e4', 'g6')
+
 b1.display()
