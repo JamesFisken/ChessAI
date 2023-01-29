@@ -11,12 +11,12 @@ fps = 60
 rows = 8
 columns = 8
 squareSize = 80
+
 WHITE = (230, 151, 99)
-BLACK = (230, 61, 9)
+BLACK = (230, 61, 50)
+SELECTED = 30
 
 fpsClock = pygame.time.Clock()
-
-
 width, height = squareSize*columns, squareSize*rows
 screen = pygame.display.set_mode((width, height))
 
@@ -71,17 +71,22 @@ White_King = pygame.transform.scale(White_King, DEFAULT_IMAGE_SIZE)
 White_Queen = pygame.transform.scale(White_Queen, DEFAULT_IMAGE_SIZE)
 White_Rook = pygame.transform.scale(White_Rook, DEFAULT_IMAGE_SIZE)
 
+def letter_case(ch):
+    if ch.isupper():
+        return "uppercase"
+    elif ch.islower():
+        return "lowercase"
+
 class Square:
     def __init__(self, pieceType, position):
         self.pieceType = pieceType
         self.posx = position[0]
         self.posy = position[1]
         self.position = position
-        self.colour = (255, 0, 0)
         if sum(position) % 2 == 1:
-            self.colour = WHITE
-        else:
             self.colour = BLACK
+        else:
+            self.colour = WHITE
 
 
 class Board:
@@ -105,11 +110,11 @@ class Board:
 
                 if lookerX <= 7 and lookerY <= 7 and lookerX >= 0 and lookerY >= 0 and counter < distance:
                     if self.gameState[lookerX][lookerY].pieceType != "-":
-                        if (self.gameState[lookerX][lookerY].pieceType).isupper() == (
-                        piece.pieceType).isupper():  # blocked by own pieces
+                        if letter_case(self.gameState[lookerX][lookerY].pieceType) == letter_case(
+                        piece.pieceType):  # blocked by own pieces
                             Stopped = True
-                        elif (self.gameState[lookerX][lookerY].pieceType).isupper() == (
-                        piece.pieceType).isupper():  # capture
+                        elif letter_case(self.gameState[lookerX][lookerY].pieceType) != letter_case(
+                        piece.pieceType):  # capture
                             Stopped = True
                             legal_moves.append([lookerX, lookerY])
                     else:
@@ -186,19 +191,42 @@ class Board:
             return True
         else:
             return False
+    def find_piece(self, piece):
+        for sq in self.gameState.flatten():
+            if sq.pieceType == piece:
+                return sq
+
+    def test_move_from_king(self, directions, pieceCh, distance, king):
+        king = self.find_piece(king)
+        moves = self.check_directions(directions, king, distance)  # all rook moves away from a king
+        for pos in moves:
+            if self.get_piece(pos) == pieceCh:
+                return True
+
+
     def in_check(self):
-        
-        #use the gamestate to determine if a king is in check
-        return True
+        checked = []
+        if self.turn == 'w':
+            checked.append(self.test_move_from_king([[0, 1], [0, -1], [1, 0], [-1, 0]], 'r', 100, "K"))
+            checked.append(self.test_move_from_king([[1, 1], [-1, -1], [-1, 1], [1, -1]], 'b', 100, "K"))
+            checked.append(self.test_move_from_king([[1, 2], [2, 1], [-1, -2], [-2, -1], [-1, 2], [-2, 1], [1, -2], [2, -1]], 'n', 2, "K"))
+            checked.append(self.test_move_from_king([[1, 1], [-1, -1], [-1, 1], [1, -1], [0, 1], [0, -1], [1, 0], [-1, 0]], 'k', 2, "K"))
+            checked.append(self.test_move_from_king([[1, 1], [-1, -1], [-1, 1], [1, -1], [0, 1], [0, -1], [1, 0], [-1, 0]], 'q', 100, "K"))
+        if self.turn == 'b':
+            checked.append(self.test_move_from_king([[0, 1], [0, -1], [1, 0], [-1, 0]], 'R', 100, "k"))
+            checked.append(self.test_move_from_king([[1, 1], [-1, -1], [-1, 1], [1, -1]], 'B', 100, "k"))
+            checked.append(self.test_move_from_king([[1, 2], [2, 1], [-1, -2], [-2, -1], [-1, 2], [-2, 1], [1, -2], [2, -1]], 'N', 2, "k"))
+            checked.append(self.test_move_from_king([[1, 1], [-1, -1], [-1, 1], [1, -1], [0, 1], [0, -1], [1, 0], [-1, 0]], 'K', 2, "k"))
+            checked.append(self.test_move_from_king([[1, 1], [-1, -1], [-1, 1], [1, -1], [0, 1], [0, -1], [1, 0], [-1, 0]], 'Q', 100, "k"))
+
+        if True in checked:
+            return True
+        else:
+            return False
 
     def move_piece(self, p1_sq, p2_sq):
-        #p1 = list(str(coords[p1[0]]) + str(coords[p1[1]])) #p1 position 1
-        #p2 = list(str(coords[p2[0]]) + str(coords[p2[1]])) #p2 position 2
-
-        #p1_sq = self.gameState[int(p1[0])][int(p1[1])] #square object at p1
-        #p2_sq = self.gameState[int(p2[0])][int(p2[1])] #square object at p2
-
         if self.check_legality(p1_sq, p2_sq):
+            save_sq = p2_sq.pieceType
             p2_sq.pieceType = p1_sq.pieceType  # changes one squares piece to another
             p1_sq.pieceType = "-"  # makes the original square that the piece was on empty
 
@@ -206,6 +234,13 @@ class Board:
                 p2_sq.pieceType = "q"  # promote to queen
             if p2_sq.pieceType == 'P' and p2_sq.posy == 0:  # reach back rank
                 p2_sq.pieceType = "Q"  # promote to queen
+
+            if self.in_check():
+                p1_sq.pieceType = p2_sq.pieceType
+                p2_sq.pieceType = save_sq
+                print("move results in check")
+                return
+
 
             if self.turn == "w":
                 self.turn = "b"
@@ -216,11 +251,13 @@ class Board:
 
 
     def get_piece(self, position):
+        if position[0] >= columns or position[1] >= rows:  # outside of board
+            return "-"  # return empty
+
         return self.gameState[position[0]][position[1]].pieceType
 
     def add_piece(self, position, pieceType):
         self.gameState[position[0]][position[1]].pieceType = pieceType
-
 
     def FENimport(self, FEN):
         #rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w
@@ -304,9 +341,13 @@ def get_mouse_inputs(x, y, board):
             if y > sq.posy*squareSize and y < sq.posy*squareSize + squareSize:
                 if len(selected_squares) == 0 and sq.pieceType != "-": #first click and clicked on a piece
                     selected_squares.append(sq)
+                    sq.colour = tuple([sq.colour[0]-SELECTED, sq.colour[1]-SELECTED, sq.colour[2]-SELECTED])
+
                 elif len(selected_squares) == 1:
                     selected_squares.append(sq)
                     board.move_piece(selected_squares[0], selected_squares[1]) #passes 2 squares to move pieces from
+                    selected_squares[0].colour = tuple([selected_squares[0].colour[0]+SELECTED, selected_squares[0].colour[1]+SELECTED, selected_squares[0].colour[2]+SELECTED])
+                    print(selected_squares[0].colour)
                     selected_squares = []
 
 
