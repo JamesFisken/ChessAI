@@ -10,11 +10,11 @@ fps = 60
 
 rows = 8
 columns = 8
-squareSize = 80
+squareSize = 50
 
 WHITE = (230, 151, 99)
 BLACK = (230, 61, 50)
-SELECTED = 30
+SELECTED = 35
 
 fpsClock = pygame.time.Clock()
 width, height = squareSize*columns, squareSize*rows
@@ -83,6 +83,13 @@ class Square:
         self.posx = position[0]
         self.posy = position[1]
         self.position = position
+        positions = [(0, 0), (0, 7), (7, 7), (7, 0), (4, 0), (4, 7)] #rook and king squares
+        if self.position in positions:
+            self.moved = False
+        else:
+            self.moved = None
+
+
         if sum(position) % 2 == 1:
             self.colour = BLACK
         else:
@@ -99,6 +106,26 @@ class Board:
 
         self.Eval = None
         self.turn = turn
+
+    def castle(self, clickedSq):
+        if self.turn == 'w':
+            king = self.find_piece('K')
+            if clickedSq == (6, 7):
+                rook_sq = self.gameState[7][7]  # get kingside rook
+                if rook_sq.pieceType == 'R':
+                    if rook_sq.moved is False and king.moved is False:  # both pieces haven't moved
+                        if self.get_piece((6, 7)) == "-" and self.get_piece((5, 7)) == "-":
+                            return [(4, 7), (6, 7), (7, 7), (5, 7)]  # move order: kingStart kingEnd rookStart rookEnd
+        if self.turn == 'b':
+            king = self.find_piece('k')
+            if clickedSq == (6, 0):
+                rook_sq = self.gameState[7][0]  # get kingside rook
+                if rook_sq.pieceType == 'r':
+                    if rook_sq.moved is False and king.moved is False:  # both pieces haven't moved
+                        if self.get_piece((6, 0)) == "-" and self.get_piece((5, 0)) == "-":
+                            return [(4, 0), (6, 0), (7, 0), (5, 0)]  # move order: kingStart kingEnd rookStart rookEnd
+        return []
+
     def check_directions(self, directions, piece, distance):
         legal_moves = []
         for dir in directions:
@@ -108,7 +135,7 @@ class Board:
                 lookerX = piece.posx + dir[0] * counter
                 lookerY = piece.posy + dir[1] * counter
 
-                if lookerX <= 7 and lookerY <= 7 and lookerX >= 0 and lookerY >= 0 and counter < distance:
+                if lookerX <= columns-1 and lookerY <= rows-1 and lookerX >= 0 and lookerY >= 0 and counter < distance:
                     if self.gameState[lookerX][lookerY].pieceType != "-":
                         if letter_case(self.gameState[lookerX][lookerY].pieceType) == letter_case(
                         piece.pieceType):  # blocked by own pieces
@@ -186,7 +213,6 @@ class Board:
             return False
 
         legal_moves = self.get_pieces_legal_move(sq1)
-        print(legal_moves)
         if list(sq2.position) in legal_moves:
             return True
         else:
@@ -212,12 +238,14 @@ class Board:
             checked.append(self.test_move_from_king([[1, 2], [2, 1], [-1, -2], [-2, -1], [-1, 2], [-2, 1], [1, -2], [2, -1]], 'n', 2, "K"))
             checked.append(self.test_move_from_king([[1, 1], [-1, -1], [-1, 1], [1, -1], [0, 1], [0, -1], [1, 0], [-1, 0]], 'k', 2, "K"))
             checked.append(self.test_move_from_king([[1, 1], [-1, -1], [-1, 1], [1, -1], [0, 1], [0, -1], [1, 0], [-1, 0]], 'q', 100, "K"))
+            checked.append(self.test_move_from_king([[-1, -1], [1, -1]], 'p', 2, "K"))
         if self.turn == 'b':
             checked.append(self.test_move_from_king([[0, 1], [0, -1], [1, 0], [-1, 0]], 'R', 100, "k"))
             checked.append(self.test_move_from_king([[1, 1], [-1, -1], [-1, 1], [1, -1]], 'B', 100, "k"))
             checked.append(self.test_move_from_king([[1, 2], [2, 1], [-1, -2], [-2, -1], [-1, 2], [-2, 1], [1, -2], [2, -1]], 'N', 2, "k"))
             checked.append(self.test_move_from_king([[1, 1], [-1, -1], [-1, 1], [1, -1], [0, 1], [0, -1], [1, 0], [-1, 0]], 'K', 2, "k"))
             checked.append(self.test_move_from_king([[1, 1], [-1, -1], [-1, 1], [1, -1], [0, 1], [0, -1], [1, 0], [-1, 0]], 'Q', 100, "k"))
+            checked.append(self.test_move_from_king([[-1, 1], [1, 1]], 'P', 2, "k"))
 
         if True in checked:
             return True
@@ -225,12 +253,46 @@ class Board:
             return False
 
     def move_piece(self, p1_sq, p2_sq):
+        if p1_sq.pieceType.lower() == 'k' and abs(p1_sq.posx - p2_sq.posx) == 2 and not self.in_check():
+            castle = self.castle(p2_sq.position)
+            print(castle)
+
+            if castle != []:
+                king = p1_sq.pieceType
+                rook = self.gameState[castle[2][0]][castle[2][1]].pieceType
+                self.gameState[castle[3][0]][castle[3][1]].pieceType = king
+                self.gameState[castle[0][0]][castle[0][1]].pieceType = '-'
+                if self.in_check():
+                    self.gameState[castle[0][0]][castle[0][1]].pieceType = king
+                    self.gameState[castle[3][0]][castle[3][1]].pieceType = '-'
+                    print("can't castle through check")
+                    return
+
+                self.gameState[castle[1][0]][castle[1][1]].pieceType = king  # move king to correct sq
+                self.gameState[castle[3][0]][castle[3][1]].pieceType = rook  # move rook to corect square
+                self.gameState[castle[2][0]][castle[2][1]].pieceType = '-'
+
+
+                if self.in_check():
+                    self.gameState[castle[2][0]][castle[2][1]].pieceType = self.gameState[castle[3][0]][castle[3][1]].pieceType
+                    self.gameState[castle[0][0]][castle[0][1]].pieceType = self.gameState[castle[1][0]][castle[1][1]].pieceType
+                    self.gameState[castle[1][0]][castle[1][1]].pieceType = '-'
+                    self.gameState[castle[3][0]][castle[3][1]].pieceType = '-'
+                    print("castle results in check")
+                    return
+                if self.turn == "w":
+                    self.turn = "b"
+                elif self.turn == "b":
+                    self.turn = "w"
+                p1_sq.moved = True
+                return
+
         if self.check_legality(p1_sq, p2_sq):
-            save_sq = p2_sq.pieceType
+            save_sq = p2_sq.pieceType  # for memory in case the move has to undo
             p2_sq.pieceType = p1_sq.pieceType  # changes one squares piece to another
             p1_sq.pieceType = "-"  # makes the original square that the piece was on empty
 
-            if p2_sq.pieceType == 'p' and p2_sq.posy == 7:  # reach back rank
+            if p2_sq.pieceType == 'p' and p2_sq.posy == rows-1:  # reach back rank
                 p2_sq.pieceType = "q"  # promote to queen
             if p2_sq.pieceType == 'P' and p2_sq.posy == 0:  # reach back rank
                 p2_sq.pieceType = "Q"  # promote to queen
@@ -241,7 +303,7 @@ class Board:
                 print("move results in check")
                 return
 
-
+            p1_sq.moved = True
             if self.turn == "w":
                 self.turn = "b"
             elif self.turn == "b":
@@ -249,11 +311,9 @@ class Board:
         else:
             print("move is illegal")
 
-
     def get_piece(self, position):
         if position[0] >= columns or position[1] >= rows:  # outside of board
             return "-"  # return empty
-
         return self.gameState[position[0]][position[1]].pieceType
 
     def add_piece(self, position, pieceType):
@@ -268,7 +328,6 @@ class Board:
         for i, ch in enumerate(FEN):
             if parody:
                 self.turn = ch  # sets turn
-
             elif ch == '/':
                 column += 1
                 row = 0
@@ -280,24 +339,18 @@ class Board:
                 self.add_piece((row,column), ch)
                 row += 1
 
-
     def display(self):
         pieceboard = []
         for row in self.gameState:
             for sq in row:
                 pieceboard.append(str(sq.pieceType))
         pieceboard = np.array(pieceboard)
-        pieceboard = pieceboard.reshape((8, 8))
+        pieceboard = pieceboard.reshape((rows, columns))
 
         print(np.swapaxes(pieceboard, 0, 1))  # swaps axis for easy visualization
-        #print('   a   b   c   d   e   f   g   h')
-
 
 b1 = Board(rows, columns, [Square("-", (x, y)) for x in range(rows) for y in range(columns)], 'b')
 b1.FENimport('rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w')
-
-#b1.move_piece('e3', 'f6')
-#b1.move_piece('e3', 'f4')
 
 def draw_board(board):
     for sq in board.gameState.flatten():
@@ -308,9 +361,9 @@ def draw_pieces(board):
     for sq in board.gameState.flatten():
         if sq.pieceType != "-":
             if sq.pieceType == "p":
-                screen.blit(Black_Pawn, (sq.posx * squareSize - 3, sq.posy * squareSize + 3))
+                screen.blit(Black_Pawn, (sq.posx * squareSize - 3 * squareSize/75, sq.posy * squareSize + 3 * squareSize/75))
             if sq.pieceType == "n":
-                screen.blit(Black_Knight, (sq.posx * squareSize - 3, sq.posy * squareSize + 3))
+                screen.blit(Black_Knight, (sq.posx * squareSize - 3 * squareSize/75, sq.posy * squareSize + 3 * squareSize/75))
             if sq.pieceType == "b":
                 screen.blit(Black_Bishop, (sq.posx * squareSize, sq.posy * squareSize))
             if sq.pieceType == "k":
@@ -318,12 +371,12 @@ def draw_pieces(board):
             if sq.pieceType == "q":
                 screen.blit(Black_Queen, (sq.posx * squareSize, sq.posy * squareSize))
             if sq.pieceType == "r":
-                screen.blit(Black_Rook, (sq.posx * squareSize - 3, sq.posy * squareSize + 3))
+                screen.blit(Black_Rook, (sq.posx * squareSize - 3 * squareSize/75, sq.posy * squareSize + 3 * squareSize/75))
 
             if sq.pieceType == "P":
-                screen.blit(White_Pawn, (sq.posx * squareSize - 3, sq.posy * squareSize + 3))
+                screen.blit(White_Pawn, (sq.posx * squareSize - 3 * squareSize/75, sq.posy * squareSize + 3 * squareSize/75))
             if sq.pieceType == "N":
-                screen.blit(White_Knight, (sq.posx * squareSize - 3, sq.posy * squareSize + 3))
+                screen.blit(White_Knight, (sq.posx * squareSize - 3 * squareSize/75, sq.posy * squareSize + 3 * squareSize/75))
             if sq.pieceType == "B":
                 screen.blit(White_Bishop, (sq.posx * squareSize, sq.posy * squareSize))
             if sq.pieceType == "K":
@@ -331,7 +384,7 @@ def draw_pieces(board):
             if sq.pieceType == "Q":
                 screen.blit(White_Queen, (sq.posx * squareSize, sq.posy * squareSize))
             if sq.pieceType == "R":
-                screen.blit(White_Rook, (sq.posx * squareSize - 3, sq.posy * squareSize + 3))
+                screen.blit(White_Rook, (sq.posx * squareSize - 3 * squareSize/75, sq.posy * squareSize + 3 * squareSize/75))
 
 selected_squares = []
 def get_mouse_inputs(x, y, board):
@@ -347,7 +400,6 @@ def get_mouse_inputs(x, y, board):
                     selected_squares.append(sq)
                     board.move_piece(selected_squares[0], selected_squares[1]) #passes 2 squares to move pieces from
                     selected_squares[0].colour = tuple([selected_squares[0].colour[0]+SELECTED, selected_squares[0].colour[1]+SELECTED, selected_squares[0].colour[2]+SELECTED])
-                    print(selected_squares[0].colour)
                     selected_squares = []
 
 
@@ -368,6 +420,5 @@ while True:
     draw_board(b1)
     draw_pieces(b1)
     # Draw.
-
     pygame.display.flip()
     fpsClock.tick(fps)
